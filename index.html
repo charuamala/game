@@ -54,133 +54,188 @@
 </head>
 
 <body>
-    <div id="menu">CLICK TO START
-        BY RENISH THE BEST
-    </div>
+    <div id="menu">CLICK TO START<br>BY RENISH THE BEST</div>
     <div id="ui">Score: 0</div>
     <div id="health">Health: 100</div>
     <canvas id="game"></canvas>
+
     <script>
-        const canvas = document.getElementById('game');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('game');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
 
-        // === GAME STATE ===
-        let score = 0, health = 100, keys = {}, particles = [], collectibles = [], enemies = [], boss = null, gameStarted = false;
+            const menu = document.getElementById('menu');
+            const ui = document.getElementById('ui');
+            const healthUI = document.getElementById('health');
 
-        // === PARALLAX ===
-        let clouds = [], trees = [], mountains = [];
-        for (let i = 0; i < 5; i++) clouds.push({ x: Math.random() * canvas.width, y: Math.random() * 200, speed: Math.random() * 0.5 + 0.2, width: 150, height: 70 });
-        for (let i = 0; i < 7; i++) trees.push({ x: i * 200, y: canvas.height - 250, width: 50, height: 150, speed: 1.5 });
-        for (let i = 0; i < 3; i++) mountains.push({ x: i * canvas.width / 2, y: canvas.height - 300, width: canvas.width / 2, height: 300 });
+            // === GAME STATE ===
+            let score = 0, health = 100, keys = {}, particles = [], collectibles = [], enemies = [], boss = null, gameStarted = false;
 
-        // === PLAYER ===
-        const player = { x: 100, y: canvas.height - 150, width: 50, height: 50, color: 'BLUE', speed: 6, vy: 0, gravity: 0.8, jumpForce: -18, attacks: [], attackCooldown: 0 };
-
-        // === CONTROLS ===
-        document.addEventListener('keydown', e => keys[e.code] = true);
-        document.addEventListener('keyup', e => keys[e.code] = false);
-
-        // === MENU ===
-        const menu = document.getElementById('menu');
-        menu.addEventListener('click', () => {
-            gameStarted = true; menu.style.display = 'none';
-        });
-
-        // === UTILITY ===
-        function createParticle(x, y, color) { particles.push({ x, y, color, radius: 5, vy: Math.random() * -2 - 1, life: 50 }); }
-        function spawnEnemy() { enemies.push({ x: canvas.width, y: canvas.height - 150, width: 50, height: 50, color: 'red', speed: 300, health: 3 }); }
-        function spawnCollectible() { collectibles.push({ x: canvas.width, y: canvas.height - 200, width: 30, height: 30, color: 'gold', speed: 2 }); }
-        function spawnBoss() { boss = { x: canvas.width, y: canvas.height - 250, width: 120, height: 120, color: 'darkred', speed: 1, health: 50, attacks: [], cooldown: 100 }; }
-
-        // === GAME LOOP ===
-        function loop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (!gameStarted) { requestAnimationFrame(loop); return; }
-
-            // === PARALLAX LAYERS ===
-            mountains.forEach(m => { ctx.fillStyle = '#555'; ctx.fillRect(m.x, m.y, m.width, m.height); });
-            trees.forEach(t => { ctx.fillStyle = 'green'; ctx.fillRect(t.x, t.y, t.width, t.height); t.x -= t.speed; if (t.x + t.width < 0) t.x = canvas.width; });
-            clouds.forEach(c => { ctx.fillStyle = 'white'; ctx.fillRect(c.x, c.y, c.width, c.height); c.x -= c.speed; if (c.x + c.width < 0) c.x = canvas.width; });
-
-            // === PLAYER MOVEMENT ===
-            if (keys['ArrowUp'] && player.y + player.height >= canvas.height - 100) player.vy = player.jumpForce;
-            if (keys['ArrowLeft']) player.x -= player.speed; if (keys['ArrowRight']) player.x += player.speed;
-            player.vy += player.gravity; player.y += player.vy;
-            if (player.y + player.height >= canvas.height - 100) { player.y = canvas.height - 100 - player.height; player.vy = 0; }
-
-            // === ATTACKS ===
-            if (keys['Space'] && player.attackCooldown <= 0) {
-                player.attacks.push({ x: player.x + player.width, y: player.y + player.height / 2 - 5, width: 20, height: 10, color: 'cyan', speed: 10 });
-                player.attackCooldown = 0;
-            }
-            if (player.attackCooldown > 0) player.attackCooldown--;
-
-            player.attacks.forEach((a, i) => {
-                a.x += a.speed;
-                ctx.fillStyle = a.color; ctx.fillRect(a.x, a.y, a.width, a.height);
-                // Enemy hit detection
-                enemies.forEach((e, j) => {
-                    if (a.x < a.x + a.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
-                        createParticle(e.x + e.width / 2, e.y + e.height / 2, 'orange');
-                        e.health--; player.attacks.splice(i, 1);
-                        if (e.health <= 0) { enemies.splice(j, 1); score += 20; document.getElementById('ui').innerText = "Score: " + score; }
-                    }
-                });
-                // Boss collision
-                if (boss && a.x < a.x + a.width && a.x > boss.x && a.x < boss.x + boss.width && player.y < boss.y + boss.height && player.y + player.height > boss.y) {
-                    boss.health--; createParticle(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow'); player.attacks.splice(i, 1);
-                }
-            });
-
-            // === SPAWN ENEMIES & COLLECTIBLES ===
-            if (Math.random() < 0.02) spawnEnemy();
-            if (Math.random() < 0.005) spawnCollectible();
-            if (score > 1000 && !boss) spawnBoss();
-
-            // === ENEMIES ===
-            enemies.forEach((e, i) => {
-                e.x -= e.speed;
-                ctx.fillStyle = e.color; ctx.fillRect(e.x, e.y, e.width, e.height);
-                if (player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) { health -= 1; createParticle(player.x + player.width / 2, player.y + player.height / 2, 'red'); }
-                if (e.x + e.width < 0) enemies.splice(i, 1);
-            });
-
-            // === COLLECTIBLES ===
-            collectibles.forEach((c, i) => {
-                c.x -= c.speed; ctx.fillStyle = c.color; ctx.fillRect(c.x, c.y, c.width, c.height);
-                if (player.x < c.x + c.width && player.x + player.width > c.x && player.y < c.y + c.height && player.y + player.height > c.y) { score += 50; collectibles.splice(i, 1); document.getElementById('ui').innerText = "Score: " + score; }
-                if (c.x + c.width < 0) collectibles.splice(i, 1);
-            });
-
-            // === BOSS ===
-            if (boss) {
-                boss.x -= boss.speed;
-                ctx.fillStyle = boss.color; ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
-                boss.cooldown--;
-                if (boss.cooldown <= 0) { boss.attacks.push({ x: boss.x, y: boss.y + boss.height / 2 - 5, width: 20, height: 10, color: 'DARKRED', speed: 1 }); boss.cooldown = 100; }
-                boss.attacks.forEach((ba, i) => {
-                    ba.x += ba.speed; ctx.fillStyle = ba.color; ctx.fillRect(ba.x, ba.y, ba.width, ba.height);
-                    if (ba.x < player.x + player.width && ba.x + ba.width > player.x && player.y < ba.y + ba.height && player.y + player.height > ba.y) { health -= 5; createParticle(player.x + player.width / 2, player.y + player.height / 2, 'red'); boss.attacks.splice(i, 1); }
-                });
-                if (boss.health <= 0) { score += 10000; boss = null; document.getElementById('ui').innerText = "Score: " + score; }
-            }
-
-            // === PARTICLES ===
-            particles.forEach((p, i) => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); p.y += p.vy; p.life--; if (p.life <= 0) particles.splice(i, 1); });
+            // === PARALLAX ===
+            let clouds = [], trees = [], mountains = [];
+            for (let i = 0; i < 5; i++) clouds.push({ x: Math.random() * canvas.width, y: Math.random() * 200, speed: Math.random() * 0.5 + 0.2, width: 150, height: 70 });
+            for (let i = 0; i < 7; i++) trees.push({ x: i * 200, y: canvas.height - 250, width: 50, height: 150, speed: 1.5 });
+            for (let i = 0; i < 3; i++) mountains.push({ x: i * canvas.width / 2, y: canvas.height - 300, width: canvas.width / 2, height: 300 });
 
             // === PLAYER ===
-            ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height);
+            const player = { x: 100, y: canvas.height - 150, width: 50, height: 50, color: 'BLUE', speed: 6, vy: 0, gravity: 0.8, jumpForce: -18, attacks: [], attackCooldown: 0 };
 
-            // === UI UPDATE ===
-            document.getElementById('health').innerText = "Health: " + health;
+            // === CONTROLS ===
+            document.addEventListener('keydown', e => keys[e.code] = true);
+            document.addEventListener('keyup', e => keys[e.code] = false);
 
-            // === GAME OVER ===
-            if (health <= 0) { menu.style.display = 'flex'; menu.innerText = 'GAME OVER\nCLICK TO RESTART'; gameStarted = false; health = 100; score = 0; enemies = []; collectibles = []; player.attacks = []; boss = null; }
+            // === MENU CLICK ===
+            if (menu) {
+                menu.addEventListener('click', () => {
+                    gameStarted = true;
+                    menu.style.display = 'none';
+                });
+            }
 
-            requestAnimationFrame(loop);
-        }
-        loop();
+            // === UTILITY ===
+            function createParticle(x, y, color) {
+                particles.push({ x, y, color, radius: 5, vy: Math.random() * -2 - 1, life: 50 });
+            }
+            function spawnEnemy() {
+                enemies.push({ x: canvas.width, y: canvas.height - 150, width: 50, height: 50, color: 'red', speed: 3, health: 3 });
+            }
+            function spawnCollectible() {
+                collectibles.push({ x: canvas.width, y: canvas.height - 200, width: 30, height: 30, color: 'gold', speed: 2 });
+            }
+            function spawnBoss() {
+                boss = { x: canvas.width, y: canvas.height - 50, width: 120, height: 120, color: 'darkred', speed: 1, health: 50, attacks: [], cooldown: 100 };
+            }
+
+            // === GAME LOOP ===
+            function loop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (!gameStarted) { requestAnimationFrame(loop); return; }
+
+                // === PARALLAX LAYERS ===
+                mountains.forEach(m => { ctx.fillStyle = '#555'; ctx.fillRect(m.x, m.y, m.width, m.height); });
+                trees.forEach(t => { ctx.fillStyle = 'green'; ctx.fillRect(t.x, t.y, t.width, t.height); t.x -= t.speed; if (t.x + t.width < 0) t.x = canvas.width; });
+                clouds.forEach(c => { ctx.fillStyle = 'white'; ctx.fillRect(c.x, c.y, c.width, c.height); c.x -= c.speed; if (c.x + c.width < 0) c.x = canvas.width; });
+                //clouds.forEach(c => { drawCloud(c.x, c.y, 1); c.x -= c.speed; if (c.x + 60 < 0) c.x = canvas.width;});
+                // === PLAYER MOVEMENT ===
+                if (keys['ArrowUp'] && player.y + player.height >= canvas.height - 100) player.vy = player.jumpForce;
+                if (keys['ArrowLeft']) player.x -= player.speed;
+                if (keys['ArrowRight']) player.x += player.speed;
+                player.vy += player.gravity;
+                player.y += player.vy;
+                if (player.y + player.height >= canvas.height - 100) { player.y = canvas.height - 100 - player.height; player.vy = 0; }
+
+                // === ATTACKS ===
+                if (keys['Space'] && player.attackCooldown <= 0) {
+                    player.attacks.push({ x: player.x + player.width, y: player.y + player.height / 2 - 5, width: 20, height: 10, color: 'cyan', speed: 10 });
+                    player.attackCooldown = 10; // small cooldown
+                }
+                if (player.attackCooldown > 0) player.attackCooldown--;
+
+                // Process attacks safely
+                for (let i = player.attacks.length - 1; i >= 0; i--) {
+                    const a = player.attacks[i];
+                    a.x += a.speed;
+                    ctx.fillStyle = a.color; ctx.fillRect(a.x, a.y, a.width, a.height);
+
+                    // Enemy collisions
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (a.x < e.x + e.width && a.x + a.width > e.x && a.y < e.y + e.height && a.y + a.height > e.y) {
+                            createParticle(e.x + e.width / 2, e.y + e.height / 2, 'orange');
+                            e.health--;
+                            player.attacks.splice(i, 1);
+                            if (e.health <= 0) { enemies.splice(j, 1); score += 20; if (ui) ui.innerText = "Score: " + score; }
+                            break;
+                        }
+                    }
+
+                    // Boss collisions
+                    if (boss && a.x < boss.x + boss.width && a.x + a.width > boss.x && a.y < boss.y + boss.height && a.y + a.height > boss.y) {
+                        boss.health--;
+                        createParticle(boss.x + boss.width / 2, boss.y + boss.height / 2, 'yellow');
+                        player.attacks.splice(i, 1);
+                    }
+                }
+
+                // === SPAWN ENEMIES & COLLECTIBLES ===
+                if (Math.random() < 0.02) spawnEnemy();
+                if (Math.random() < 0.005) spawnCollectible();
+                if (score > 1000 && !boss) spawnBoss();
+
+                // === ENEMIES ===
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const e = enemies[i];
+                    e.x -= e.speed;
+                    ctx.fillStyle = e.color; ctx.fillRect(e.x, e.y, e.width, e.height);
+                    if (player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
+                        health -= 1;
+                        createParticle(player.x + player.width / 2, player.y + player.height / 2, 'red');
+                    }
+                    if (e.x + e.width < 0) enemies.splice(i, 1);
+                }
+
+                // === COLLECTIBLES ===
+                for (let i = collectibles.length - 1; i >= 0; i--) {
+                    const c = collectibles[i];
+                    c.x -= c.speed; ctx.fillStyle = c.color; ctx.fillRect(c.x, c.y, c.width, c.height);
+                    if (player.x < c.x + c.width && player.x + player.width > c.x && player.y < c.y + c.height && player.y + player.height > c.y) {
+                        score += 50; collectibles.splice(i, 1); if (ui) ui.innerText = "Score: " + score;
+                    }
+                    if (c.x + c.width < 0) collectibles.splice(i, 1);
+                }
+
+                // === BOSS ===
+                if (boss) {
+                    boss.x -= boss.speed;
+                    ctx.fillStyle = boss.color; ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
+                    boss.cooldown--;
+                    if (boss.cooldown <= 0) {
+                        boss.attacks.push({ x: boss.x, y: boss.y + boss.height / 2 - 5, width: 20, height: 10, color: 'DARKRED', speed: 1 });
+                        boss.cooldown = 100;
+                    }
+
+                    for (let i = boss.attacks.length - 1; i >= 0; i--) {
+                        const ba = boss.attacks[i];
+                        ba.x += ba.speed;
+                        ctx.fillStyle = ba.color; ctx.fillRect(ba.x, ba.y, ba.width, ba.height);
+                        if (ba.x < player.x + player.width && ba.x + ba.width > player.x && player.y < ba.y + ba.height && player.y + player.height > ba.y) {
+                            health -= 5;
+                            createParticle(player.x + player.width / 2, player.y + player.height / 2, 'red');
+                            boss.attacks.splice(i, 1);
+                        }
+                    }
+
+                    if (boss.health <= 0) { score += 10000; boss = null; if (ui) ui.innerText = "Score: " + score; }
+                }
+
+                // === PARTICLES ===
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                    p.y += p.vy; p.life--;
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+
+                // === PLAYER ===
+                ctx.fillStyle = player.color; ctx.fillRect(player.x, player.y, player.width, player.height);
+
+                // === UI UPDATE ===
+                if (healthUI) healthUI.innerText = "Health: " + health;
+
+                // === GAME OVER ===
+                if (health <= 0) {
+                    if (menu) { menu.style.display = 'flex'; menu.innerText = 'GAME OVER\nCLICK TO RESTART'; }
+                    gameStarted = false; health = 100; score = 0; enemies = []; collectibles = []; player.attacks = []; boss = null;
+                }
+
+                requestAnimationFrame(loop);
+            }
+            loop();
+        });
     </script>
 </body>
 
